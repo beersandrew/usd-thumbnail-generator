@@ -1,0 +1,27 @@
+#usda 1.0
+(
+    metersPerUnit = 0.01
+    subLayers = [
+        @cube_rainbow.usd@
+    ]
+)
+
+def "ThumbnailGenerator"
+{
+    def Camera "ZCamera"
+    {
+        float focalLength = 50
+        float focusDistance = 5
+        float fStop = 0
+        float horizontalAperture = 36
+        float horizontalApertureOffset = 0
+        token projection = "perspective"
+        float verticalAperture = 24
+        float verticalApertureOffset = 0
+        float xformOp:rotateX = 45
+        float xformOp:rotateY = -20
+        double3 xformOp:translate = (0, 0, 16)
+        uniform token[] xformOpOrder = ["xformOp:rotateY", "xformOp:rotateX", "xformOp:translate"]
+    }
+}
+
