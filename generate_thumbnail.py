@@ -34,7 +34,7 @@ if __name__ == "__main__":
         
         # take the snapshot
         print("Step 3: take the snapshot")
-        image_name = "image_name" + ".#.png"
+        image_name = input_file.split('.')[0] + ".#.png"
         cmd = ['usdrecord', '--frames', '0:0', '--camera', 'ZCamera', '--imageWidth', '2048', '--renderer', 'Metal', 'cameras.usda', image_name]
         subprocess.run(cmd, check=True)
 
