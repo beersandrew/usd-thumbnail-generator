@@ -86,6 +86,7 @@ def take_snapshot(input_file):
 def link_image_to_subject(subject_stage, image_name):
     subject_root_prim = subject_stage.GetDefaultPrim()
     mediaAPI = UsdMedia.AssetPreviewsAPI.Apply(subject_root_prim)
+    image_name = image_name.replace(".#.", ".0.")
     thumbnails = UsdMedia.AssetPreviewsAPI.Thumbnails(defaultImage = Sdf.AssetPath(image_name))
     mediaAPI.SetDefaultThumbnails(thumbnails)
     subject_stage.GetRootLayer().Save()
