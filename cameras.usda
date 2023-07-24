@@ -19,7 +19,7 @@ def Xform "ThumbnailGenerator"
         token projection = "perspective"
         float verticalAperture = 24
         float verticalApertureOffset = 0
-        double3 xformOp:translate = (0, 0, 4.166666666666667)
+        double3 xformOp:translate = (0, 0, 8.333333333333334)
         uniform token[] xformOpOrder = ["xformOp:translate"]
     }
 }
