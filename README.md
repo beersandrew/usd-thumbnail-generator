@@ -16,9 +16,11 @@ Given a cameras.usd file that lists one or more camera angles, along with a give
 
 `python3 generate_thumbnail.py <subject_usd_file>`
 
-## Things to do
+## Features
 
-1. Calculate camera position from extents properly
-2. Support different camera angles (add these params to the command line arguments)
-3. Is anything special needed for usdz?
-4. Renderer and other usdrecord commands are hardcoded, could also be command line arguments
+| Name      | Status |
+| ----------- | ----------- |
+| Place camera properly      | Done       |
+| Support usdz files   | Not Done        |
+| Support rotations / other camera angles   | Not Done        |
+| Add more optional parameters (renderer)   | Not Done        |
