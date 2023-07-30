@@ -10,9 +10,33 @@ import os
 from pathlib import Path
 
 def setup_camera(subject_stage, usd_file):
-    camera_stage = Usd.Stage.Open('cameras.usda')
+    camera_stage = create_camera()
     move_camera(camera_stage, subject_stage)
     sublayer_subject(camera_stage, usd_file)
+
+def create_camera():
+    stage = Usd.Stage.CreateNew('camera.usda')
+
+    # Set metadata on the stage.
+    stage.SetDefaultPrim(stage.DefinePrim('/MainCamera', 'Xform'))
+    stage.SetMetadata('metersPerUnit', 0.01)
+
+    # Define the "ThumbnailGenerator" Xform.
+    xform = UsdGeom.Xform.Define(stage, '/ThumbnailGenerator')
+
+    # Define the "MainCamera" under the "ThumbnailGenerator".
+    camera = UsdGeom.Camera.Define(stage, '/ThumbnailGenerator/MainCamera')
+
+    # Set the camera attributes.
+    camera.CreateFocalLengthAttr(50)
+    camera.CreateFocusDistanceAttr(168.60936)
+    camera.CreateFStopAttr(0)
+    camera.CreateHorizontalApertureAttr(24)
+    camera.CreateHorizontalApertureOffsetAttr(0)
+    camera.CreateProjectionAttr("perspective")
+    camera.CreateVerticalApertureAttr(24)
+    camera.CreateVerticalApertureOffsetAttr(0)
+    return stage
 
 def move_camera(camera_stage, subject_stage):
     camera_prim = UsdGeom.Camera.Get(camera_stage, '/ThumbnailGenerator/MainCamera')
@@ -82,8 +106,9 @@ def sublayer_subject(camera_stage, input_file):
     camera_stage.GetRootLayer().Save()
 
 def take_snapshot(image_name):
-    cmd = ['usdrecord', '--frames', '0:0', '--camera', 'ZCamera', '--imageWidth', '2048', '--renderer', 'Metal', 'cameras.usda', image_name]
+    cmd = ['usdrecord', '--frames', '0:0', '--camera', 'ZCamera', '--imageWidth', '2048', '--renderer', 'Metal', 'camera.usda', image_name]
     subprocess.run(cmd, check=True)
+    os.remove("camera.usda")
     return image_name.replace(".#.", ".0.")
 
 def create_image_filename(input_path):
@@ -169,4 +194,6 @@ if __name__ == "__main__":
 
             print("Step 5: Cleaning up files...")
             clean_up_files(file_list)
+    else:
+        print("Usage: python3 generate_thumbnail.py <usd_file_name>")
             
