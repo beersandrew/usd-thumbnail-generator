@@ -1,13 +1,39 @@
 #!/usr/bin/env python3
 
 from pxr import Usd, UsdGeom, UsdMedia, Sdf, Gf
-import sys
 import subprocess
 import math
-import shutil
-import zipfile
 import os
+import argparse
 from pathlib import Path
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="This script takes a thumbnail image of the given USD file supplied and associates it with the file.")
+    parser.add_argument('usd_file', 
+                        type=str, 
+                        help='The USD file you want to add a thumbnail to. If USDZ is input, a new USD file will be created to wrap the existing one called <input>_Thumbnail.usd')
+    parser.add_argument('--create-usdz-result', 
+                        action='store_true',
+                        help='Returns the resulting files as a new usdz file called <input>_Thumbnail.usdz')
+    parser.add_argument('--verbose', 
+                        action='store_true',
+                        help='Prints out the steps as they happen')
+    return parser.parse_args()
+
+def generate_thumbnail(usd_file, verbose):
+    if verbose: 
+        print("Step 1: Setting up the camera...")
+    
+    subject_stage = Usd.Stage.Open(usd_file)
+    setup_camera(subject_stage, usd_file)
+    
+    if verbose:
+        print("Step 2: Taking the snapshot...")
+    
+    Path("renders").mkdir(parents=True, exist_ok=True)
+    image_name = take_snapshot("renders/" + create_image_filename(usd_file))
+
+    return image_name
 
 def setup_camera(subject_stage, usd_file):
     camera_stage = create_camera()
@@ -22,7 +48,7 @@ def create_camera():
     stage.SetMetadata('metersPerUnit', 0.01)
 
     # Define the "ThumbnailGenerator" Xform.
-    xform = UsdGeom.Xform.Define(stage, '/ThumbnailGenerator')
+    UsdGeom.Xform.Define(stage, '/ThumbnailGenerator')
 
     # Define the "MainCamera" under the "ThumbnailGenerator".
     camera = UsdGeom.Camera.Define(stage, '/ThumbnailGenerator/MainCamera')
@@ -107,7 +133,7 @@ def sublayer_subject(camera_stage, input_file):
 
 def take_snapshot(image_name):
     cmd = ['usdrecord', '--frames', '0:0', '--camera', 'ZCamera', '--imageWidth', '2048', '--renderer', 'Metal', 'camera.usda', image_name]
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
     os.remove("camera.usda")
     return image_name.replace(".#.", ".0.")
 
@@ -120,80 +146,48 @@ def link_image_to_subject(subject_stage, image_name):
     thumbnails = UsdMedia.AssetPreviewsAPI.Thumbnails(defaultImage = Sdf.AssetPath(image_name))
     mediaAPI.SetDefaultThumbnails(thumbnails)
     subject_stage.GetRootLayer().Save()
-
-def generate_thumbnail_and_link(usd_file):
-    print("Step 1: Setting up the camera...")
-    subject_stage = Usd.Stage.Open(usd_file)
-    setup_camera(subject_stage, usd_file)
     
-    print("Step 2: Taking the snapshot...")
-    Path("thumbnail").mkdir(parents=True, exist_ok=True)
-    image_name = take_snapshot("thumbnail/" + create_image_filename(usd_file))
+def create_usdz_wrapper_stage(usdz_file):
+    file_name = usdz_file.split('.')[0]
+    existing_stage = Usd.Stage.Open(usd_file)
+    new_stage = Usd.Stage.CreateNew(file_name + '_Thumbnail.usda')
 
-    print("Step 3: Linking thumbnail to subject...")
-    link_image_to_subject(subject_stage, image_name)
+    # TODO: this should be more comprehensive 
+    new_stage.SetDefaultPrim(existing_stage.GetDefaultPrim())
+    new_stage.SetMetadata('metersPerUnit', existing_stage.GetMetadata('metersPerUnit'))
+    new_stage.SetMetadata('upAxis', existing_stage.GetMetadata('upAxis'))
 
-    return image_name
+    new_stage.GetRootLayer().subLayerPaths = [usdz_file]
+    new_stage.GetRootLayer().Save()
+    return new_stage
 
-def get_usdz_filelist_and_extract(usdz_file):
-    with zipfile.ZipFile(usdz_file, 'r') as zip_ref:
-        file_list = zip_ref.namelist()
-        zip_ref.extractall("")
-        return file_list
-    
-def clean_up_files(file_list):
-    set_of_directories = set()
-    for file in file_list:
-        set_of_directories.add(file.split('/')[0])
-        try:
-            os.remove(file)
-            print(f"File {file} has been deleted successfully")
-        except FileNotFoundError:
-            print(f"File {file} not found")
-        except OSError as e:
-            print(f"Error: {e.strerror}")
+def zip_results(usd_file, image_name, is_usdz):
+    file_list = [usd_file, image_name]
 
-    for dir in set_of_directories:
-        try:
-            if (is_directory_empty(dir)):
-                shutil.rmtree(dir)
-                print(f"Directory {dir} has been deleted successfully")
-        except FileNotFoundError:
-            print(f"Directory {dir} not found")
-        except OSError as e:
-            print(f"Error: {e.strerror}")
-
-def is_directory_empty(directory):
-    if not os.path.exists(directory):
-        return False
-    if not os.listdir(directory):
-        return True
-    else:
-        return False
+    if is_usdz:
+        file_list.append(usd_file.split('.')[0] + '_Thumbnail.usda')
+        
+    usdz_file = usd_file.split('.')[0] + '_Thumbnail.usdz'
+    cmd = ["usdzip", "-r", usdz_file] + file_list
+    subprocess.run(cmd)
 
 if __name__ == "__main__":
-    if len(sys.argv) == 2:
-        usd_file = sys.argv[1]
-        usdz_file = usd_file
-        is_usdz = ".usdz" in usd_file
 
-        print("Thumbnail Generation for: ", usd_file)
+    args = parse_args()
 
-        if is_usdz:
-            print("Step 0: Unzipping usdz...")
-            file_list = get_usdz_filelist_and_extract(usdz_file)
-            usd_file = file_list[0] if file_list else None
-            
-        image_name = generate_thumbnail_and_link(usd_file)
+    usd_file = args.usd_file
+    is_usdz = ".usdz" in usd_file
+        
+    image_name = generate_thumbnail(usd_file, args.verbose)
+    subject_stage = create_usdz_wrapper_stage(usd_file) if is_usdz else Usd.Stage.Open(usd_file)
 
-        if is_usdz:
-            print("Step 4: Zipping usdz...")
-            file_list.append(image_name)
-            cmd = ["usdzip", "-r", usdz_file] + file_list
-            subprocess.run(cmd)
+    if args.verbose:
+        print("Step 3: Linking thumbnail to subject...")
 
-            print("Step 5: Cleaning up files...")
-            clean_up_files(file_list)
-    else:
-        print("Usage: python3 generate_thumbnail.py <usd_file_name>")
-            
+    link_image_to_subject(subject_stage, image_name)
+
+    if args.create_usdz_result:
+        if args.verbose:
+            print("Step 4: Linking thumbnail to subject...")
+        
+        zip_results(usd_file, image_name, is_usdz)
