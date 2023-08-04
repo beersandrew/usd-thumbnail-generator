@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from pxr import Usd, UsdGeom, UsdMedia, Sdf, Gf
+from pxr import Usd, UsdGeom, UsdMedia, Sdf, Gf, UsdUtils
 import subprocess
 import math
 import os
@@ -151,11 +151,8 @@ def create_usdz_wrapper_stage(usdz_file):
     file_name = usdz_file.split('.')[0]
     existing_stage = Usd.Stage.Open(usd_file)
     new_stage = Usd.Stage.CreateNew(file_name + '_Thumbnail.usda')
-
-    # TODO: this should be more comprehensive 
-    new_stage.SetDefaultPrim(existing_stage.GetDefaultPrim())
-    new_stage.SetMetadata('metersPerUnit', existing_stage.GetMetadata('metersPerUnit'))
-    new_stage.SetMetadata('upAxis', existing_stage.GetMetadata('upAxis'))
+    
+    UsdUtils.CopyLayerMetadata(existing_stage.GetRootLayer(), new_stage.GetRootLayer())
 
     new_stage.GetRootLayer().subLayerPaths = [usdz_file]
     new_stage.GetRootLayer().Save()
