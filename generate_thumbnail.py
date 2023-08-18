@@ -4,6 +4,7 @@ from pxr import Usd, UsdGeom, UsdMedia, Sdf, Gf, UsdUtils
 import subprocess
 import math
 import os
+import sys
 import argparse
 from pathlib import Path
 
@@ -136,7 +137,7 @@ def sublayer_subject(camera_stage, input_file):
 def take_snapshot(image_name):
     renderer = get_renderer()
     cmd = ['usdrecord', '--frames', '0:0', '--camera', 'ZCamera', '--imageWidth', '2048', '--renderer', renderer, 'camera.usda', image_name]
-    subprocess.run(cmd, check=True, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    run_os_specific_usdrecord(cmd)
     os.remove("camera.usda")
     return image_name.replace(".#.", ".0.")
 
@@ -152,6 +153,14 @@ def get_renderer():
             print("linux default renderer GL being used...")
             return 'GL'
 
+def run_os_specific_usdrecord(cmd):
+    if os.name == 'nt':
+        subprocess.run(cmd, check=True, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    else:
+        if sys.platform == 'darwin':
+            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+        else:
+            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
 def create_image_filename(input_path):
     return input_path.split('.')[0] + ".#.png"
