@@ -9,7 +9,7 @@ def Cube "cube" (
         dictionary previews = {
             dictionary thumbnails = {
                 dictionary default = {
-                    asset defaultImage = @thumbnail/cube_rainbow.0.png@
+                    asset defaultImage = @renders/cube_rainbow.0.png@
                 }
             }
         }

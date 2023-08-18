@@ -1,0 +1,25 @@
+#usda 1.0
+(
+    defaultPrim = "baked_mesh"
+    metersPerUnit = 1
+    subLayers = [
+        @usd_cookie.usdz@
+    ]
+    upAxis = "Y"
+)
+
+over "baked_mesh" (
+    prepend apiSchemas = ["AssetPreviewsAPI"]
+    assetInfo = {
+        dictionary previews = {
+            dictionary thumbnails = {
+                dictionary default = {
+                    asset defaultImage = @renders/usd_cookie.0.png@
+                }
+            }
+        }
+    }
+)
+{
+}
+

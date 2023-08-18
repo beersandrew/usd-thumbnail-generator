@@ -31,7 +31,9 @@ def generate_thumbnail(usd_file, verbose):
         print("Step 2: Taking the snapshot...")
     
     Path("renders").mkdir(parents=True, exist_ok=True)
-    image_name = take_snapshot("renders/" + create_image_filename(usd_file))
+
+    image_path = os.path.join("renders", create_image_filename(usd_file)).replace("\\", "/")
+    image_name = take_snapshot(image_path)
 
     return image_name
 
@@ -132,10 +134,24 @@ def sublayer_subject(camera_stage, input_file):
     camera_stage.GetRootLayer().Save()
 
 def take_snapshot(image_name):
-    cmd = ['usdrecord', '--frames', '0:0', '--camera', 'ZCamera', '--imageWidth', '2048', '--renderer', 'Metal', 'camera.usda', image_name]
-    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    renderer = get_renderer()
+    cmd = ['usdrecord', '--frames', '0:0', '--camera', 'ZCamera', '--imageWidth', '2048', '--renderer', renderer, 'camera.usda', image_name]
+    subprocess.run(cmd, check=True, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
     os.remove("camera.usda")
     return image_name.replace(".#.", ".0.")
+
+def get_renderer():
+    if os.name == 'nt':
+        print("windows default renderer GL being used...")
+        return "GL"
+    else:
+        if sys.platform == 'darwin':
+            print("macOS default renderer Metal being used...")
+            return 'Metal'
+        else:
+            print("linux default renderer GL being used...")
+            return 'GL'
+
 
 def create_image_filename(input_path):
     return input_path.split('.')[0] + ".#.png"
