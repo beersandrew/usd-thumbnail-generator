@@ -47,11 +47,8 @@ def create_camera():
     stage = Usd.Stage.CreateNew('camera.usda')
 
     # Set metadata on the stage.
-    stage.SetDefaultPrim(stage.DefinePrim('/MainCamera', 'Xform'))
+    stage.SetDefaultPrim(stage.DefinePrim('/ThumbnailGenerator', 'Xform'))
     stage.SetMetadata('metersPerUnit', 0.01)
-
-    # Define the "ThumbnailGenerator" Xform.
-    UsdGeom.Xform.Define(stage, '/ThumbnailGenerator')
 
     # Define the "MainCamera" under the "ThumbnailGenerator".
     camera = UsdGeom.Camera.Define(stage, '/ThumbnailGenerator/MainCamera')
@@ -136,7 +133,7 @@ def sublayer_subject(camera_stage, input_file):
 
 def take_snapshot(image_name):
     renderer = get_renderer()
-    cmd = ['usdrecord', '--frames', '0:0', '--camera', 'ZCamera', '--imageWidth', '2048', '--renderer', renderer, 'camera.usda', image_name]
+    cmd = ['usdrecord', '--frames', '0:0', '--camera', 'MainCamera', '--imageWidth', '2048', '--renderer', renderer, 'camera.usda', image_name]
     run_os_specific_usdrecord(cmd)
     os.remove("camera.usda")
     return image_name.replace(".#.", ".0.")

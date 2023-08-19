@@ -16,7 +16,7 @@ def Cube "cube" (
     }
 )
 {
-    float3[] extent = [(-2, -2, -2), (2, 2, 2)]
+    float3[] extent = [(-1, -1, -1), (1, 1, 1)]
     color3f[] primvars:displayColor = [(0, 0, 1), (1, 0, 1), (1, 0, 0), (0, 1, 0), (0, 0, 1), (1, 0, 1), (1, 0, 0), (0, 1, 0)] (
         interpolation = "vertex"
     )
