@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from pxr import Usd, UsdGeom, UsdMedia, Sdf, Gf, UsdUtils
+from pxr import Usd, UsdGeom, UsdMedia, Sdf, Gf, UsdUtils, UsdLux
 import subprocess
 import math
 import os
@@ -13,6 +13,9 @@ def parse_args():
     parser.add_argument('usd_file', 
                         type=str, 
                         help='The USD file you want to add a thumbnail to. If USDZ is input, a new USD file will be created to wrap the existing one called <input>_Thumbnail.usd')
+    parser.add_argument('--dome-light',
+                        type=str,
+                        help='The path to the dome light HDR image to use, if any')
     parser.add_argument('--create-usdz-result', 
                         action='store_true',
                         help='Returns the resulting files as a new usdz file called <input>_Thumbnail.usdz')
@@ -41,6 +44,11 @@ def generate_thumbnail(usd_file, verbose):
 def setup_camera(subject_stage, usd_file):
     camera_stage = create_camera()
     move_camera(camera_stage, subject_stage)
+
+    # check if string is not empty
+    if args.dome_light:
+        add_domelight(camera_stage)
+
     sublayer_subject(camera_stage, usd_file)
 
 def create_camera():
@@ -68,6 +76,12 @@ def move_camera(camera_stage, subject_stage):
     camera_prim = UsdGeom.Camera.Get(camera_stage, '/ThumbnailGenerator/MainCamera')
     camera_translation = create_camera_translation(subject_stage, camera_prim)
     apply_camera_translation(camera_stage, camera_prim, camera_translation)
+
+def add_domelight(camera_stage):
+    UsdLux.DomeLight.Define(camera_stage, '/ThumbnailGenerator/DomeLight')
+    domeLight = UsdLux.DomeLight(camera_stage.GetPrimAtPath('/ThumbnailGenerator/DomeLight'))
+    domeLight.CreateTextureFileAttr().Set(args.dome_light)
+    domeLight.CreateTextureFormatAttr().Set("latlong")
 
 def create_camera_translation(subject_stage, camera_prim):
     bounding_box = get_bounding_box(subject_stage)
