@@ -136,7 +136,7 @@ def take_snapshot(image_name):
     cmd = ['usdrecord', '--camera', 'MainCamera', '--imageWidth', '2048', '--renderer', renderer, 'camera.usda', image_name]
     run_os_specific_usdrecord(cmd)
     os.remove("camera.usda")
-    return image_name.replace(".#.", ".0.")
+    return image_name
 
 def get_renderer():
     if os.name == 'nt':
