@@ -133,7 +133,7 @@ def sublayer_subject(camera_stage, input_file):
 
 def take_snapshot(image_name):
     renderer = get_renderer()
-    cmd = ['usdrecord', '--frames', '0:0', '--camera', 'MainCamera', '--imageWidth', '2048', '--renderer', renderer, 'camera.usda', image_name]
+    cmd = ['usdrecord', '--camera', 'MainCamera', '--imageWidth', '2048', '--renderer', renderer, 'camera.usda', image_name]
     run_os_specific_usdrecord(cmd)
     os.remove("camera.usda")
     return image_name.replace(".#.", ".0.")
@@ -160,7 +160,7 @@ def run_os_specific_usdrecord(cmd):
             subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
 def create_image_filename(input_path):
-    return input_path.split('.')[0] + ".#.png"
+    return input_path.split('.')[0] + ".png"
 
 def link_image_to_subject(subject_stage, image_name):
     subject_root_prim = subject_stage.GetDefaultPrim()
