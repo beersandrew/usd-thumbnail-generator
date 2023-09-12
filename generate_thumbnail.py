@@ -74,7 +74,7 @@ def create_camera():
 
 def move_camera(camera_stage, subject_stage):
     camera_prim = UsdGeom.Camera.Get(camera_stage, '/ThumbnailGenerator/MainCamera')
-    camera_translation = create_camera_translation(subject_stage, camera_prim)
+    camera_translation = create_camera_translation_and_clipping(subject_stage, camera_prim)
     apply_camera_translation(camera_stage, camera_prim, camera_translation)
 
 def add_domelight(camera_stage):
@@ -83,14 +83,31 @@ def add_domelight(camera_stage):
     domeLight.CreateTextureFileAttr().Set(args.dome_light)
     domeLight.CreateTextureFormatAttr().Set("latlong")
 
-def create_camera_translation(subject_stage, camera_prim):
+def create_camera_translation_and_clipping(subject_stage, camera_prim):
     bounding_box = get_bounding_box(subject_stage)
     min_bound = bounding_box.GetMin()
     max_bound = bounding_box.GetMax()
 
     subject_center = (min_bound + max_bound) / 2.0
     distance = get_distance_to_camera(min_bound, max_bound, camera_prim)
-    return subject_center + get_camera_z_translation(distance)
+
+    # Conversion from mm to cm and some padding
+    distanceInCm = distance / 10.0
+    # Some padding
+    distanceInCm = distanceInCm * 1.1
+    cameraZ = subject_center + get_camera_z_translation(distanceInCm)
+
+    # We're extending the clipping planes in both directions to accommodate for different fields of view
+    nearClip = (distanceInCm + min_bound[2]) * 0.5
+    farClip = (distanceInCm + max_bound[2]) * 2
+    nearClip = max(nearClip, 0.0000001)
+    clippingPlanes = Gf.Vec2f(nearClip, farClip)
+    camera_prim.GetClippingRangeAttr().Set(clippingPlanes)
+
+    if args.verbose:
+        print("Calculating clipping planes... " + str(clippingPlanes))
+
+    return cameraZ
 
 def get_bounding_box(subject_stage):
     bboxCache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
@@ -122,7 +139,7 @@ def calculate_camera_distance(subject_size, field_of_view):
     return distance
 
 def get_camera_z_translation(distance):
-    return Gf.Vec3d(0, 0, distance / 10.0)  # convert units from mm to cm
+    return Gf.Vec3d(0, 0, distance)
 
 def apply_camera_translation(camera_stage, camera_prim, camera_translation):
     xformRoot = UsdGeom.Xformable(camera_prim.GetPrim())
