@@ -14,6 +14,7 @@ optional arguments:
   - `-h`, `--help` : Show help
   - `--create-usdz-result` :  Returns the resulting files as a new USDZ file called `<subject_usd_file>_Thumbnail.usdz`
   - `--verbose` :             Prints out the steps as they happen
+  - `--dome-light` :          The path to the dome light HDR image to use, if any
 
   Note: You must have usd installed and available in your path. [Install Steps Here](https://github.com/PixarAnimationStudios/OpenUSD#getting-and-building-the-code)
 
@@ -22,14 +23,14 @@ Given a USD file to use as the subject of the thumbnail do the following
 
 1. Generate a camera such that the subject is in view
 2. Sublayer the subject in the camera
-3. Run `usdrecord` to take a snapshot and store it in `/renders/<input>.0.png`
+3. Run `usdrecord` to take a snapshot and store it in `/renders/<input>.png`
     - macOS
-        - `usdrecord --frames 0:0 --camera ZCamera --imageWidth 2048 --renderer Metal camera.usda <input>.#.png` 
+        - `usdrecord --camera ZCamera --imageWidth 2048 --renderer Metal camera.usda <input>.png` 
     - windows
-        - `usdrecord --frames 0:0 --camera ZCamera --imageWidth 2048 --renderer GL camera.usda <input>.#.png` 
+        - `usdrecord --camera ZCamera --imageWidth 2048 --renderer GL camera.usda <input>.#.png` 
         - note: this will run with `shell=True` for the subprocess call
     - linux
-        - `usdrecord --frames 0:0 --camera ZCamera --imageWidth 2048 --renderer Metal camera.usda <input>.#.png`
+        - `usdrecord --camera ZCamera --imageWidth 2048 --renderer Metal camera.usda <input>.png`
     - ZCamera & camera.usda are generated in step 2
 4. If the file is not a USDZ file, assign that image as the usd's thumbnail image
 5. If the file is a USDZ file, create a new `<subject_usd_file>_Thumbnail.usda`, assign the image as the thumbnail, and sublayer `<subject_usd_file>.usdz`
