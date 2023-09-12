@@ -19,6 +19,13 @@ def parse_args():
     parser.add_argument('--create-usdz-result', 
                         action='store_true',
                         help='Returns the resulting files as a new usdz file called <input>_Thumbnail.usdz')
+    parser.add_argument('--width',
+                        type=int,
+                        help='The width of the image to generate. Default is 2048.',
+                        default=2048)
+    parser.add_argument('--height',
+                        type=int,
+                        help='The height of the image to generate. Default is 2048. If height is not specified, the image is square.')
     parser.add_argument('--verbose', 
                         action='store_true',
                         help='Prints out the steps as they happen')
@@ -70,6 +77,10 @@ def create_camera():
     camera.CreateProjectionAttr("perspective")
     camera.CreateVerticalApertureAttr(24)
     camera.CreateVerticalApertureOffsetAttr(0)
+    
+    if args.height:
+        camera.CreateHorizontalApertureAttr(24 * args.width / args.height)
+
     return stage
 
 def move_camera(camera_stage, subject_stage):
@@ -164,7 +175,7 @@ def sublayer_subject(camera_stage, input_file):
 
 def take_snapshot(image_name):
     renderer = get_renderer()
-    cmd = ['usdrecord', '--camera', 'MainCamera', '--imageWidth', '2048', '--renderer', renderer, 'camera.usda', image_name]
+    cmd = ['usdrecord', '--camera', 'MainCamera', '--imageWidth', str(args.width), '--renderer', renderer, 'camera.usda', image_name]
     run_os_specific_usdrecord(cmd)
     os.remove("camera.usda")
     return image_name.replace(".#.", ".0.")
