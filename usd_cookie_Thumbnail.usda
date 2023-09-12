@@ -14,7 +14,7 @@ over "baked_mesh" (
         dictionary previews = {
             dictionary thumbnails = {
                 dictionary default = {
-                    asset defaultImage = @renders/usd_cookie.0.png@
+                    asset defaultImage = @renders/usd_cookie.png@
                 }
             }
         }
