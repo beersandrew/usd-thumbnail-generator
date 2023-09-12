@@ -174,7 +174,7 @@ def run_os_specific_usdrecord(cmd):
             subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
 def create_image_filename(input_path):
-    return input_path.split('.')[0] + ".png"
+    return Path(input_path).with_suffix(".png")
 
 def link_image_to_subject(subject_stage, image_name):
     subject_root_prim = subject_stage.GetDefaultPrim()
@@ -196,11 +196,12 @@ def create_usdz_wrapper_stage(usdz_file):
 
 def zip_results(usd_file, image_name, is_usdz):
     file_list = [usd_file, image_name]
+    usdPath = Path(usd_file)
 
     if is_usdz:
-        file_list.append(usd_file.split('.')[0] + '_Thumbnail.usda')
+        file_list.append(usdPath.with_suffix('_Thumbnail.usda'))
         
-    usdz_file = usd_file.split('.')[0] + '_Thumbnail.usdz'
+    usdz_file = usdPath.with_suffix('_Thumbnail.usdz')
     cmd = ["usdzip", "-r", usdz_file] + file_list
     subprocess.run(cmd)
 
