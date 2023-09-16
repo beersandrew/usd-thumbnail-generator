@@ -49,7 +49,7 @@ def generate_thumbnail(usd_file, verbose):
     return image_name
 
 def setup_camera(subject_stage, usd_file):
-    camera_stage = create_camera()
+    camera_stage = create_camera(UsdGeom.GetStageUpAxis(subject_stage))
     move_camera(camera_stage, subject_stage)
 
     # check if string is not empty
@@ -58,12 +58,13 @@ def setup_camera(subject_stage, usd_file):
 
     sublayer_subject(camera_stage, usd_file)
 
-def create_camera():
+def create_camera(up_axis):
     stage = Usd.Stage.CreateNew('camera.usda')
 
     # Set metadata on the stage.
     stage.SetDefaultPrim(stage.DefinePrim('/ThumbnailGenerator', 'Xform'))
     stage.SetMetadata('metersPerUnit', 0.01)
+    UsdGeom.SetStageUpAxis(stage, up_axis) 
 
     # Define the "MainCamera" under the "ThumbnailGenerator".
     camera = UsdGeom.Camera.Define(stage, '/ThumbnailGenerator/MainCamera')
@@ -183,6 +184,7 @@ def take_snapshot(image_name):
     renderer = get_renderer()
     cmd = ['usdrecord', '--camera', 'MainCamera', '--imageWidth', str(args.width), '--renderer', renderer, 'camera.usda', image_name]
     run_os_specific_usdrecord(cmd)
+    os.remove('camera.usda')
     return image_name.replace(".#.", ".0.")
 
 def get_renderer():
