@@ -36,12 +36,13 @@ def generate_thumbnail(usd_file, verbose):
         print("Step 1: Setting up the camera...")
     
     subject_stage = Usd.Stage.Open(usd_file)
+    subject_file = usd_file
 
     if (UsdGeom.GetStageUpAxis(subject_stage) == 'Z'):
         subject_stage = generate_y_up_stage(subject_stage, usd_file)
-        usd_file = 'y_up.usda'
+        subject_file = 'y_up.usda'
 
-    setup_camera(subject_stage, usd_file)
+    setup_camera(subject_stage, subject_file)
     
     if verbose:
         print("Step 2: Taking the snapshot...")
@@ -55,7 +56,7 @@ def generate_thumbnail(usd_file, verbose):
 
 def generate_y_up_stage(stage, usd_file):
     y_up_stage = Usd.Stage.CreateNew('y_up.usda')
-    new_top_level = UsdGeom.Xform.Define(y_up_stage, '/NewTopLevel')
+    new_top_level = UsdGeom.Xform.Define(y_up_stage, '/Root')
 
     for prim in stage.GetPseudoRoot().GetChildren():
         if prim != new_top_level.GetPrim():
@@ -63,18 +64,27 @@ def generate_y_up_stage(stage, usd_file):
             new_prim.SetActive(True)
             new_prim.GetReferences().AddReference(usd_file, prim.GetPath())
 
-            mesh_prims = [mesh_prim for mesh_prim in Usd.PrimRange(prim) if mesh_prim.IsA(UsdGeom.Mesh)]
-            for mesh_prim in mesh_prims:
-                # Create a MaterialBindingAPI for the mesh prim
-                binding = UsdShade.MaterialBindingAPI(mesh_prim)
-                bound_material, binding_rel = binding.ComputeBoundMaterial()
-                print("mesh_prim: ", mesh_prim)
-                print("material: ", bound_material)
+    # do this after the first loop because it's possible we didn't copy over the materials, so we need to make sure everything
+    # is copied, then re-assign
+    for prim in stage.GetPseudoRoot().GetChildren():
+        mesh_prims = [mesh_prim for mesh_prim in Usd.PrimRange(prim) if mesh_prim.IsA(UsdGeom.Mesh)]
+        for source_mesh_prim in mesh_prims:
+            # Create a MaterialBindingAPI for the mesh prim
+            binding = UsdShade.MaterialBindingAPI(source_mesh_prim)
+            bound_material, binding_rel = binding.ComputeBoundMaterial()
+           
+            
+            # get path to new prim (prepend top layer)
+            root_mesh_prim = y_up_stage.GetPrimAtPath('/Root' + str(source_mesh_prim.GetPath()))
+            
+            root_material_prim = y_up_stage.GetPrimAtPath('/Root' + str(bound_material.GetPath()))
+            root_material = UsdShade.Material(root_material_prim)
+
+            materialBindingAPI = UsdShade.MaterialBindingAPI(root_mesh_prim)
+            materialBindingAPI.Bind(root_material)
 
     # Apply the rotation to the parent prim
     UsdGeom.Xformable(new_top_level).AddRotateXOp().Set(270)
-
-    # Sublayer the original stage under the transform
 
     y_up_stage.Save()
     return y_up_stage
@@ -210,6 +220,7 @@ def take_snapshot(image_name):
     cmd = ['usdrecord', '--camera', 'MainCamera', '--imageWidth', str(args.width), '--renderer', renderer, 'camera.usda', image_name]
     run_os_specific_usdrecord(cmd)
     os.remove("camera.usda")
+    os.remove("y_up.usda")
     return image_name.replace(".#.", ".0.")
 
 def get_renderer():
