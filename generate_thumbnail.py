@@ -26,12 +26,16 @@ def parse_args():
     parser.add_argument('--height',
                         type=int,
                         help='The height of the image to generate. Default is 2048. If height is not specified, the image is square.')
+    parser.add_argument('--output-extension', 
+                        type=str, 
+                        help='The file extension of the output image you want (exr, png..). If using exr, make sure your usd install includes OpenEXR',
+                        default='png')
     parser.add_argument('--verbose', 
                         action='store_true',
                         help='Prints out the steps as they happen')
     return parser.parse_args()
 
-def generate_thumbnail(usd_file, verbose):
+def generate_thumbnail(usd_file, verbose, extension):
     if verbose: 
         print("Step 1: Setting up the camera...")
     
@@ -43,7 +47,7 @@ def generate_thumbnail(usd_file, verbose):
     
     Path("renders").mkdir(parents=True, exist_ok=True)
 
-    image_path = os.path.join("renders", create_image_filename(usd_file)).replace("\\", "/")
+    image_path = os.path.join("renders", create_image_filename(usd_file, extension)).replace("\\", "/")
     image_name = take_snapshot(image_path)
 
     return image_name
@@ -201,8 +205,8 @@ def run_os_specific_usdrecord(cmd):
         else:
             subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
-def create_image_filename(input_path):
-    return Path(input_path).with_suffix(".png")
+def create_image_filename(input_path, extension):
+    return Path(input_path).with_suffix("." + extension)
 
 def link_image_to_subject(subject_stage, image_name):
     subject_root_prim = subject_stage.GetDefaultPrim()
@@ -240,7 +244,7 @@ if __name__ == "__main__":
     usd_file = args.usd_file
     is_usdz = ".usdz" in usd_file
         
-    image_name = generate_thumbnail(usd_file, args.verbose)
+    image_name = generate_thumbnail(usd_file, args.verbose, args.output_extension)
     subject_stage = create_usdz_wrapper_stage(usd_file) if is_usdz else Usd.Stage.Open(usd_file)
 
     if args.verbose:

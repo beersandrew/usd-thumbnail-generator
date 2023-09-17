@@ -13,6 +13,7 @@ positional arguments:
 optional arguments:
   - `-h`, `--help` : Show help
   - `--create-usdz-result` :  Returns the resulting files as a new USDZ file called `<subject_usd_file>_Thumbnail.usdz`
+  - `--output-extension` :    The file extension of the output image you want (exr, png..). If using exr, make sure your usd install includes OpenEXR
   - `--verbose` :             Prints out the steps as they happen
   - `--dome-light` :          The path to the dome light HDR image to use, if any
 
