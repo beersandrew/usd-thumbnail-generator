@@ -227,7 +227,7 @@ def take_snapshot(image_name):
     os.remove("camera.usda")
     if os.path.isfile("y_up.usda"):
         os.remove("y_up.usda")
-    return image_name.replace(".#.", ".0.")
+    return image_name
 
 def get_renderer():
     if os.name == 'nt':
