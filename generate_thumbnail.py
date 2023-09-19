@@ -53,7 +53,7 @@ def generate_thumbnail(usd_file, verbose, extension):
     return image_name
 
 def setup_camera(subject_stage, usd_file):
-    camera_stage = create_camera()
+    camera_stage = create_camera(UsdGeom.GetStageUpAxis(subject_stage))
     move_camera(camera_stage, subject_stage)
 
     # check if string is not empty
@@ -62,12 +62,13 @@ def setup_camera(subject_stage, usd_file):
 
     sublayer_subject(camera_stage, usd_file)
 
-def create_camera():
+def create_camera(up_axis):
     stage = Usd.Stage.CreateNew('camera.usda')
 
     # Set metadata on the stage.
     stage.SetDefaultPrim(stage.DefinePrim('/ThumbnailGenerator', 'Xform'))
     stage.SetMetadata('metersPerUnit', 0.01)
+    UsdGeom.SetStageUpAxis(stage, up_axis) 
 
     # Define the "MainCamera" under the "ThumbnailGenerator".
     camera = UsdGeom.Camera.Define(stage, '/ThumbnailGenerator/MainCamera')
@@ -89,8 +90,9 @@ def create_camera():
 
 def move_camera(camera_stage, subject_stage):
     camera_prim = UsdGeom.Camera.Get(camera_stage, '/ThumbnailGenerator/MainCamera')
-    camera_translation = create_camera_translation_and_clipping(subject_stage, camera_prim)
-    apply_camera_translation(camera_stage, camera_prim, camera_translation)
+    is_z_up = UsdGeom.GetStageUpAxis(subject_stage) == 'Z'
+    camera_translation = create_camera_translation_and_clipping(subject_stage, camera_prim, is_z_up)
+    apply_camera_translation(camera_stage, camera_prim, camera_translation, is_z_up)
 
 def add_domelight(camera_stage):
     UsdLux.DomeLight.Define(camera_stage, '/ThumbnailGenerator/DomeLight')
@@ -98,23 +100,25 @@ def add_domelight(camera_stage):
     domeLight.CreateTextureFileAttr().Set(args.dome_light)
     domeLight.CreateTextureFormatAttr().Set("latlong")
 
-def create_camera_translation_and_clipping(subject_stage, camera_prim):
+def create_camera_translation_and_clipping(subject_stage, camera_prim, is_z_up):
     bounding_box = get_bounding_box(subject_stage)
     min_bound = bounding_box.GetMin()
     max_bound = bounding_box.GetMax()
 
     subject_center = (min_bound + max_bound) / 2.0
-    distance = get_distance_to_camera(min_bound, max_bound, camera_prim)
+    distance = get_distance_to_camera(min_bound, max_bound, camera_prim, is_z_up)
+
+    center_of_thumbnail_face = Gf.Vec3d(subject_center[0], min_bound[1], subject_center[2]) if is_z_up else Gf.Vec3d(subject_center[0], subject_center[1], max_bound[2])
 
     # Conversion from mm to cm and some padding
     distanceInCm = distance / 10.0
-    # Some padding
-    distanceInCm = distanceInCm * 1.1
-    cameraZ = subject_center + get_camera_z_translation(distanceInCm)
+    
+    cameraPosition = center_of_thumbnail_face + get_camera_translation(distanceInCm, is_z_up)
 
+    clipIndex = 1 if is_z_up else 2
     # We're extending the clipping planes in both directions to accommodate for different fields of view
-    nearClip = (distanceInCm + min_bound[2]) * 0.5
-    farClip = (distanceInCm + max_bound[2]) * 2
+    nearClip = (distanceInCm + min_bound[clipIndex]) * 0.5
+    farClip = (distanceInCm + max_bound[clipIndex]) * 2
     nearClip = max(nearClip, 0.0000001)
     clippingPlanes = Gf.Vec2f(nearClip, farClip)
     camera_prim.GetClippingRangeAttr().Set(clippingPlanes)
@@ -122,7 +126,7 @@ def create_camera_translation_and_clipping(subject_stage, camera_prim):
     if args.verbose:
         print("Calculating clipping planes... " + str(clippingPlanes))
 
-    return cameraZ
+    return cameraPosition
 
 def get_bounding_box(subject_stage):
     bboxCache = UsdGeom.BBoxCache(Usd.TimeCode.Default(), [UsdGeom.Tokens.default_])
@@ -130,13 +134,14 @@ def get_bounding_box(subject_stage):
     root = subject_stage.GetPseudoRoot()
     return bboxCache.ComputeWorldBound(root).GetBox()
 
-def get_distance_to_camera(min_bound, max_bound, camera_prim):
+def get_distance_to_camera(min_bound, max_bound, camera_prim, is_z_up):
     focal_length = camera_prim.GetFocalLengthAttr().Get()
     horizontal_aperture = camera_prim.GetHorizontalApertureAttr().Get()
     vertical_aperture = camera_prim.GetVerticalApertureAttr().Get()
 
+    verticalIndex = 2 if is_z_up else 1
     distance_to_capture_horizontal = calculate_field_of_view_distance(horizontal_aperture, (max_bound[0] - min_bound[0]) * 10, focal_length)
-    distance_to_capture_vertical = calculate_field_of_view_distance(vertical_aperture, (max_bound[1] - min_bound[1]) * 10, focal_length)
+    distance_to_capture_vertical = calculate_field_of_view_distance(vertical_aperture, (max_bound[verticalIndex] - min_bound[verticalIndex]) * 10, focal_length)
 
     return max(distance_to_capture_horizontal, distance_to_capture_vertical)
 
@@ -153,10 +158,10 @@ def calculate_camera_distance(subject_size, field_of_view):
     distance = (subject_size / 2) / math.tan(field_of_view / 2)
     return distance
 
-def get_camera_z_translation(distance):
-    return Gf.Vec3d(0, 0, distance)
+def get_camera_translation(distance, is_z_up):
+    return Gf.Vec3d(0, -distance, 0) if is_z_up else Gf.Vec3d(0, 0, distance)
 
-def apply_camera_translation(camera_stage, camera_prim, camera_translation):
+def apply_camera_translation(camera_stage, camera_prim, camera_translation, is_z_up):
     xformRoot = UsdGeom.Xformable(camera_prim.GetPrim())
     translateOp = None
     # Go through each operation in the xformable schema
@@ -170,6 +175,9 @@ def apply_camera_translation(camera_stage, camera_prim, camera_translation):
     if translateOp is None:
         translateOp = xformRoot.AddTranslateOp(UsdGeom.XformOp.PrecisionDouble)
 
+    if (is_z_up):
+        xformRoot.AddRotateXOp().Set(90)
+
     translateOp.Set(camera_translation)
     camera_stage.Save()
 
@@ -181,7 +189,7 @@ def take_snapshot(image_name):
     renderer = get_renderer()
     cmd = ['usdrecord', '--camera', 'MainCamera', '--imageWidth', str(args.width), '--renderer', renderer, 'camera.usda', image_name]
     run_os_specific_usdrecord(cmd)
-    os.remove("camera.usda")
+    os.remove('camera.usda')
     return image_name.replace(".#.", ".0.")
 
 def get_renderer():

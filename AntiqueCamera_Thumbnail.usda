@@ -1,0 +1,26 @@
+#usda 1.0
+(
+    defaultPrim = "camera"
+    doc = "Blender v3.6.0"
+    metersPerUnit = 1
+    subLayers = [
+        @AntiqueCamera.usdz@
+    ]
+    upAxis = "Z"
+)
+
+over "camera" (
+    prepend apiSchemas = ["AssetPreviewsAPI"]
+    assetInfo = {
+        dictionary previews = {
+            dictionary thumbnails = {
+                dictionary default = {
+                    asset defaultImage = @renders/AntiqueCamera.png@
+                }
+            }
+        }
+    }
+)
+{
+}
+
