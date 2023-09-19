@@ -104,11 +104,12 @@ def create_camera_translation_and_clipping(subject_stage, camera_prim, is_z_up):
     subject_center = (min_bound + max_bound) / 2.0
     distance = get_distance_to_camera(min_bound, max_bound, camera_prim, is_z_up)
 
+    center_of_thumbnail_face = Gf.Vec3d(subject_center[0], min_bound[1], subject_center[2]) if is_z_up else Gf.Vec3d(subject_center[0], subject_center[1], max_bound[2])
+
     # Conversion from mm to cm and some padding
     distanceInCm = distance / 10.0
-    # Some padding
-    distanceInCm = distanceInCm * 1.1
-    cameraPosition = subject_center + get_camera_translation(distanceInCm, is_z_up)
+    
+    cameraPosition = center_of_thumbnail_face + get_camera_translation(distanceInCm, is_z_up)
 
     clipIndex = 1 if is_z_up else 2
     # We're extending the clipping planes in both directions to accommodate for different fields of view
