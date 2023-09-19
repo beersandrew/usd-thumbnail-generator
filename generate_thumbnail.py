@@ -144,11 +144,12 @@ def create_camera_translation_and_clipping(subject_stage, camera_prim):
     subject_center = (min_bound + max_bound) / 2.0
     distance = get_distance_to_camera(min_bound, max_bound, camera_prim)
 
-    # Conversion from mm to cm and some padding
+    center_of_thumbnail_face = Gf.Vec3d(subject_center[0], subject_center[1], max_bound[2])
+
+    # Conversion from mm to cm
     distanceInCm = distance / 10.0
-    # Some padding
-    distanceInCm = distanceInCm * 1.1
-    cameraZ = subject_center + get_camera_z_translation(distanceInCm)
+    
+    cameraZ = center_of_thumbnail_face + get_camera_z_translation(distanceInCm)
 
     # We're extending the clipping planes in both directions to accommodate for different fields of view
     nearClip = (distanceInCm + min_bound[2]) * 0.5
@@ -220,7 +221,8 @@ def take_snapshot(image_name):
     cmd = ['usdrecord', '--camera', 'MainCamera', '--imageWidth', str(args.width), '--renderer', renderer, 'camera.usda', image_name]
     run_os_specific_usdrecord(cmd)
     os.remove("camera.usda")
-    os.remove("y_up.usda")
+    if os.path.isfile("y_up.usda"):
+        os.remove("y_up.usda")
     return image_name.replace(".#.", ".0.")
 
 def get_renderer():
