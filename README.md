@@ -36,3 +36,11 @@ Given a USD file to use as the subject of the thumbnail do the following
 4. If the file is not a USDZ file, assign that image as the usd's thumbnail image
 5. If the file is a USDZ file, create a new `<subject_usd_file>_Thumbnail.usda`, assign the image as the thumbnail, and sublayer `<subject_usd_file>.usdz`
 6. If `--create-usdz-result` is passed in, combine all of the files into a USDZ, in the case of a USD file it would be the input file and the image. In the case of a USDZ file it would be the new USDA, the image, and the input USDZ
+
+
+## Thumbnail Usage
+
+Thumbnails are being used in these apps:
+
+- [Needle Tools - Asset Explorer](https://asset-explorer.needle.tools)
+  - In the Information and Downloads section of any asset, the USDZ image is using Thumbnails
