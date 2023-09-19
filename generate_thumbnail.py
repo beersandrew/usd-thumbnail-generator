@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from pxr import Usd, UsdGeom, UsdMedia, Sdf, Gf, UsdUtils, UsdLux
+from pxr import Usd, UsdGeom, UsdMedia, Sdf, Gf, UsdUtils, UsdLux, UsdShade
 import subprocess
 import math
 import os
@@ -40,7 +40,13 @@ def generate_thumbnail(usd_file, verbose, extension):
         print("Step 1: Setting up the camera...")
     
     subject_stage = Usd.Stage.Open(usd_file)
-    setup_camera(subject_stage, usd_file)
+    subject_file = usd_file
+
+    if (UsdGeom.GetStageUpAxis(subject_stage) == 'Z'):
+        subject_stage = generate_y_up_stage(subject_stage, usd_file)
+        subject_file = 'y_up.usda'
+
+    setup_camera(subject_stage, subject_file)
     
     if verbose:
         print("Step 2: Taking the snapshot...")
@@ -51,6 +57,42 @@ def generate_thumbnail(usd_file, verbose, extension):
     image_name = take_snapshot(image_path)
 
     return image_name
+
+def generate_y_up_stage(stage, usd_file):
+    y_up_stage = Usd.Stage.CreateNew('y_up.usda')
+    new_top_level = UsdGeom.Xform.Define(y_up_stage, '/Root')
+
+    for prim in stage.GetPseudoRoot().GetChildren():
+        if prim != new_top_level.GetPrim():
+            new_prim = y_up_stage.DefinePrim(new_top_level.GetPath().AppendChild(prim.GetName()), prim.GetTypeName())
+            new_prim.SetActive(True)
+            new_prim.GetReferences().AddReference(usd_file, prim.GetPath())
+
+    # do this after the first loop because it's possible we didn't copy over the materials, so we need to make sure everything
+    # is copied, then re-assign
+    for prim in stage.GetPseudoRoot().GetChildren():
+        mesh_prims = [mesh_prim for mesh_prim in Usd.PrimRange(prim) if mesh_prim.IsA(UsdGeom.Mesh)]
+        for source_mesh_prim in mesh_prims:
+            # Create a MaterialBindingAPI for the mesh prim
+            binding = UsdShade.MaterialBindingAPI(source_mesh_prim)
+            bound_material, binding_rel = binding.ComputeBoundMaterial()
+           
+            
+            # get path to new prim (prepend top layer)
+            root_mesh_prim = y_up_stage.GetPrimAtPath('/Root' + str(source_mesh_prim.GetPath()))
+            
+            root_material_prim = y_up_stage.GetPrimAtPath('/Root' + str(bound_material.GetPath()))
+            root_material = UsdShade.Material(root_material_prim)
+
+            materialBindingAPI = UsdShade.MaterialBindingAPI(root_mesh_prim)
+            materialBindingAPI.Bind(root_material)
+
+    # Apply the rotation to the parent prim
+    UsdGeom.Xformable(new_top_level).AddRotateXOp().Set(270)
+
+    y_up_stage.Save()
+    return y_up_stage
+
 
 def setup_camera(subject_stage, usd_file):
     camera_stage = create_camera()
@@ -106,11 +148,12 @@ def create_camera_translation_and_clipping(subject_stage, camera_prim):
     subject_center = (min_bound + max_bound) / 2.0
     distance = get_distance_to_camera(min_bound, max_bound, camera_prim)
 
-    # Conversion from mm to cm and some padding
+    center_of_thumbnail_face = Gf.Vec3d(subject_center[0], subject_center[1], max_bound[2])
+
+    # Conversion from mm to cm
     distanceInCm = distance / 10.0
-    # Some padding
-    distanceInCm = distanceInCm * 1.1
-    cameraZ = subject_center + get_camera_z_translation(distanceInCm)
+    
+    cameraZ = center_of_thumbnail_face + get_camera_z_translation(distanceInCm)
 
     # We're extending the clipping planes in both directions to accommodate for different fields of view
     nearClip = (distanceInCm + min_bound[2]) * 0.5
@@ -182,6 +225,8 @@ def take_snapshot(image_name):
     cmd = ['usdrecord', '--camera', 'MainCamera', '--imageWidth', str(args.width), '--renderer', renderer, 'camera.usda', image_name]
     run_os_specific_usdrecord(cmd)
     os.remove("camera.usda")
+    if os.path.isfile("y_up.usda"):
+        os.remove("y_up.usda")
     return image_name.replace(".#.", ".0.")
 
 def get_renderer():
