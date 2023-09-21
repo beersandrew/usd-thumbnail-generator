@@ -68,18 +68,16 @@ def generate_y_up_stage(stage, usd_file):
             new_prim.SetActive(True)
             new_prim.GetReferences().AddReference(usd_file, prim.GetPath())
 
-    # do this after the first loop because it's possible we didn't copy over the materials, so we need to make sure everything
-    # is copied, then re-assign
-    for prim in stage.GetPseudoRoot().GetChildren():
-        mesh_prims = [mesh_prim for mesh_prim in Usd.PrimRange(prim) if mesh_prim.IsA(UsdGeom.Mesh)]
-        for source_mesh_prim in mesh_prims:
+    # Iterate over all prims in the stage
+    for prim in Usd.PrimRange(stage.GetPseudoRoot()):
+        # Check if the prim has the MaterialBindingAPI applied
+        if prim.HasAPI(UsdShade.MaterialBindingAPI):
             # Create a MaterialBindingAPI for the mesh prim
-            binding = UsdShade.MaterialBindingAPI(source_mesh_prim)
+            binding = UsdShade.MaterialBindingAPI(prim)
             bound_material, binding_rel = binding.ComputeBoundMaterial()
            
-            
             # get path to new prim (prepend top layer)
-            root_mesh_prim = y_up_stage.GetPrimAtPath('/Root' + str(source_mesh_prim.GetPath()))
+            root_mesh_prim = y_up_stage.GetPrimAtPath('/Root' + str(prim.GetPath()))
             
             root_material_prim = y_up_stage.GetPrimAtPath('/Root' + str(bound_material.GetPath()))
             root_material = UsdShade.Material(root_material_prim)
