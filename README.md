@@ -29,7 +29,7 @@ Given a USD file to use as the subject of the thumbnail do the following
 
 1. Generate a camera such that the subject is in view
 2. Sublayer the subject in the camera
-3. Run `usdrecord` to take a snapshot and store it in `/renders/<input>.png`
+3. Run `usdrecord` to take a snapshot and store it in `/thumbnails/<input>.png`
     - macOS
         - `usdrecord --camera ZCamera --imageWidth 2048 --renderer Metal camera.usda <input>.png` 
     - windows
