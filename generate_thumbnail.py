@@ -10,9 +10,9 @@ from pathlib import Path
 
 def parse_args():
     parser = argparse.ArgumentParser(description="This script takes a thumbnail image of the given USD file supplied and associates it with the file.")
-    parser.add_argument('usd_file', 
+    parser.add_argument('--usd-file', 
                         type=str, 
-                        help='The USD file you want to add a thumbnail to. If USDZ is input, a new USD file will be created to wrap the existing one called <input>_Thumbnail.usd')
+                        help='The USD file you want to add a thumbnail to. If USDZ is input, a new USD file will be created to wrap the existing one called `<subject_usd_file>_Thumbnail.usd`')
     parser.add_argument('--dome-light',
                         type=str,
                         help='The path to the dome light HDR image to use, if any')
@@ -40,13 +40,24 @@ def parse_args():
                         type=str,
                         help='A comma separated list of render purposes to include in the thumbnail. Valid values are: default, render, proxy, guide.',
                         default='default')
-
+    parser.add_argument('--directory', 
+                        type=str,
+                        help='A directory to generate thumbnails for all .usd, .usda, .usdc, and .usdz files. When a directory is supplied, usd-file is ignored.')
+    parser.add_argument('--recursive', 
+                        action='store_true',
+                        help='Will recursively search all directories underneath a given directory, requires a directory to be set.')
+    parser.add_argument('--camera',
+                        type=str,
+                        help='The path to the camera prim to use for the thumbnail image')
+    
     return parser.parse_args()
 
 THUMBNAIL_LAYER_SUFFIX_USDA = "_Thumbnail.usda"
 THUMBNAIL_LAYER_SUFFIX = "_Thumbnail"
 DEFAULT_THUMBNAIL_FILENAME = "default_thumbnail.usda"
+DEFAULT_CAMERA_NAME = 'MainCamera'
 THUMBNAIL_FOLDER_NAME = "thumbnails"
+EXTENSIONS = ('.usd', '.usda', '.usdc', '.usdz')
 RENDER_PURPOSE_MAP = {
     "default": UsdGeom.Tokens.default_,
     "render": UsdGeom.Tokens.render,
@@ -54,22 +65,23 @@ RENDER_PURPOSE_MAP = {
     "guide": UsdGeom.Tokens.guide
 }
 
-def generate_thumbnail(usd_file, verbose, extension, render_purpose_tokens):
+def generate_thumbnail(usd_file, verbose, extension, render_purpose_tokens, camera):
     if verbose: 
         print("Step 1: Setting up the camera...")
     
     subject_stage = Usd.Stage.Open(usd_file)
     subject_file = usd_file
 
-    setup_camera(subject_stage, subject_file, render_purpose_tokens)
-    
+    file_to_snapshot = usd_file if camera else get_or_create_file_to_snapshot(subject_stage, subject_file, render_purpose_tokens)
+    image_path = create_image_filename(usd_file, extension)
+    camera_to_snapshot_from = camera if camera else DEFAULT_CAMERA_NAME
+
     if verbose:
         print("Step 2: Taking the snapshot...")
 
-    image_path = create_image_filename(usd_file, extension)
-    return take_snapshot(image_path)
+    return take_snapshot(file_to_snapshot, camera_to_snapshot_from, image_path)
 
-def setup_camera(subject_stage, usd_file, render_purpose_tokens):
+def get_or_create_file_to_snapshot(subject_stage, usd_file, render_purpose_tokens):
     up_axis = UsdGeom.GetStageUpAxis(subject_stage)
     is_z_up = up_axis == 'Z'
 
@@ -81,6 +93,9 @@ def setup_camera(subject_stage, usd_file, render_purpose_tokens):
 
     sublayer_subject(camera_stage, usd_file)
     set_camera_stage_draw_mode(camera_stage, subject_stage)
+
+    return DEFAULT_THUMBNAIL_FILENAME
+
 
 def create_camera(up_axis):
     stage = Usd.Stage.CreateNew(DEFAULT_THUMBNAIL_FILENAME)
@@ -215,11 +230,10 @@ def sublayer_subject(camera_stage, input_file):
 
     return camera_stage
 
-def take_snapshot(image_name):
+def take_snapshot(file, camera, image_name):
     renderer = get_renderer()
-    cmd = ['usdrecord', '--camera', 'MainCamera', '--imageWidth', str(args.width), '--renderer', renderer, DEFAULT_THUMBNAIL_FILENAME, image_name]
+    cmd = ['usdrecord', '--camera', camera, '--imageWidth', str(args.width), '--renderer', renderer, file, image_name]
     run_os_specific_command(cmd)
-    os.remove(DEFAULT_THUMBNAIL_FILENAME)
     return image_name
 
 def get_renderer():
@@ -298,16 +312,16 @@ def list_resolved_dependencies(stage_path):
 def convert_render_purposes_to_tokens(render_purposes):
     return [RENDER_PURPOSE_MAP[key] for key in render_purposes.split(',')]
 
-if __name__ == "__main__":
-
-    args = parse_args()
-
-    usd_file = args.usd_file
+def generate_single_thumbnail(usd_file, args):
     is_usdz = usd_file.endswith(".usdz")
 
     purpose_tokens = convert_render_purposes_to_tokens(args.render_purposes)
         
-    image_name = generate_thumbnail(usd_file, args.verbose, args.output_extension, purpose_tokens)
+    image_name = generate_thumbnail(usd_file, args.verbose, args.output_extension, purpose_tokens, args.camera)
+
+    if not args.camera:
+        os.remove(DEFAULT_THUMBNAIL_FILENAME)
+
     subject_stage = create_usdz_wrapper_stage(usd_file) if is_usdz and args.apply_thumbnail else Usd.Stage.Open(usd_file)
     
     if args.apply_thumbnail:
@@ -321,3 +335,32 @@ if __name__ == "__main__":
             print("Step 4: Creating usdz result...")
         
         zip_results(usd_file, is_usdz)
+
+if __name__ == "__main__":
+
+    args = parse_args()
+
+    if args.directory and args.recursive:
+        for root, dirs, files in os.walk(args.directory):
+            for file in files:
+                if file.endswith(EXTENSIONS):
+                    file_path = os.path.join(root, file)
+                    print(f"Processing {file_path}...")
+                    try: 
+                        generate_single_thumbnail(file_path, args)
+                    except Exception as e:
+                        print(f"Error processing {file_path}: {e}")
+    elif args.directory:
+        for file in os.listdir(args.directory):
+            if file.endswith(EXTENSIONS):
+                file_path = os.path.join(args.directory, file)
+                print(f"Processing {file_path}...")
+                try: 
+                    generate_single_thumbnail(file_path, args)
+                except Exception as e:
+                    print(f"Error processing {file_path}: {e}")
+    elif args.usd_file:
+        usd_file = args.usd_file
+        generate_single_thumbnail(usd_file, args)
+    else:
+        print("Either --usd-file or --directory must be set.")
